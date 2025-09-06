@@ -1,0 +1,40 @@
+# ワークフローの名前
+name: Android CI
+
+# ワークフローが実行されるきっかけ（トリガー）
+on:
+  # mainブランチにpushされた時
+  push:
+    branches: [ "main" ]
+  # mainブランチに対するプルリクエストが作成・更新された時
+  pull_request:
+    branches: [ "main" ]
+
+# 実行される一連の処理（ジョブ）
+jobs:
+  # buildという名前のジョブ
+  build:
+    # 実行環境としてUbuntuの最新版を使用
+    runs-on: ubuntu-latest
+
+    # ジョブ内のステップ
+    steps:
+      # 1. リポジトリのコードをチェックアウトする
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. JDK 17 (Java Development Kit) をセットアップする
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      # 3. Gradleの実行権限を与える
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # 4. Gradleでプロジェクトをビルドする
+      - name: Build with Gradle
+        run: ./gradlew build
