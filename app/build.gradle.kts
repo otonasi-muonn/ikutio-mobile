@@ -61,6 +61,7 @@ dependencies {
     // Hilt (依存性注入)
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)
+    implementation(libs.hilt.navigation.compose)
 
     // Jetpack ComposeのためのViewModel
     implementation(libs.lifecycle.viewmodel.compose)
