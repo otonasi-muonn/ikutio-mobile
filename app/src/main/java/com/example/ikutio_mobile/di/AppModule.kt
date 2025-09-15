@@ -6,6 +6,9 @@ import com.example.ikutio_mobile.data.local.AppDatabase
 import com.example.ikutio_mobile.data.local.dao.LocationDao
 import com.example.ikutio_mobile.data.remote.AuthApiService
 import com.example.ikutio_mobile.data.remote.ProfileApiService
+import com.example.ikutio_mobile.data.repository.LocationRepository
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 import com.google.gson.GsonBuilder
 import dagger.Module
 import dagger.Provides
@@ -22,19 +25,15 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    // ★★★ バックエンド担当の方に、APIのベースURLを確認して、ここを書き換えてください ★★★
-    private const val BASE_URL = "http://10.0.2.2:8080/" // AndroidエミュレータからPCのlocalhostにアクセスする際のアドレス
+    private const val BASE_URL = "http://10.0.2.2:8080/"
 
-    // --- Retrofit関連の提供 ---
     @Provides
     @Singleton
     fun provideRetrofit(): Retrofit {
         val logger = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
-
         val client = OkHttpClient.Builder()
             .addInterceptor(logger)
             .build()
-
         return Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(client)
@@ -54,7 +53,6 @@ object AppModule {
         return retrofit.create(ProfileApiService::class.java)
     }
 
-    // --- Roomデータベース関連の提供 ---
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
@@ -75,5 +73,11 @@ object AppModule {
     @Singleton
     fun provideLocationRepository(locationDao: LocationDao): LocationRepository {
         return LocationRepository(locationDao)
+    }
+
+    @Provides
+    @Singleton
+    fun provideFusedLocationProviderClient(@ApplicationContext context: Context): FusedLocationProviderClient {
+        return LocationServices.getFusedLocationProviderClient(context)
     }
 }
