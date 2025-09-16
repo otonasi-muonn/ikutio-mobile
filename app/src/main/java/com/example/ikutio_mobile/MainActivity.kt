@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import com.example.ikutio_mobile.ui.main.MainScreen
 import com.example.ikutio_mobile.ui.theme.IkutiomobileTheme
 import dagger.hilt.android.AndroidEntryPoint
+import com.example.ikutio_mobile.ui.navigation.AppNavigation
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -21,7 +22,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainScreen()
+                    AppNavigation()
                 }
             }
         }

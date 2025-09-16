@@ -32,7 +32,8 @@ import com.example.ikutio_mobile.data.remote.GameApiService
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    private const val BASE_URL = "http://10.0.2.2:8080/"
+    private const val BASE_URL = "http://192.168.179.62:50052/"
+
 
     @Provides
     @Singleton

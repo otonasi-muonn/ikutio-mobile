@@ -9,6 +9,6 @@ data class LoginResponse(
     @SerializedName("jwt")
     val jwt: String,
 
-    @SerializedName("refreshtoken")
+    @SerializedName("refresh_token")
     val refreshToken: String
 )

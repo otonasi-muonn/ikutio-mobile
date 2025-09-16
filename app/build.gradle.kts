@@ -18,6 +18,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // ★★★ ここにあった implementation の行を削除 ★★★
     }
 
     buildTypes {
@@ -58,32 +59,27 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    // Hilt (依存性注入)
     implementation(libs.hilt.android)
     kapt(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
-    // Jetpack ComposeのためのViewModel
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
 
-    // コルーチン (非同期処理)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
 
-    // Retrofit (APIクライアント)
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp.logging.interceptor)
 
-    // Room (ローカルデータベース)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     kapt(libs.room.compiler)
 
-    // EncryptedSharedPreferences (JWTの安全な保存用)
     implementation(libs.security.crypto)
 
-    // Google Play Services (位置情報取得用)
     implementation(libs.play.services.location)
+
+    implementation(libs.navigation.compose)
 }
