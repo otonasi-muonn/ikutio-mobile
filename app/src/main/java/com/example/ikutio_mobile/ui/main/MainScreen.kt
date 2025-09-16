@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
-import android.util.Log // Logクラスをインポート
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -45,14 +45,10 @@ fun MainScreen(
 
                 if (allPermissionsGrantedInThisRequest) {
                     Log.d(TAG, "All granted in this request, calling checkPermissionsAndLaunchServiceIfNeeded again.")
-                    // 許可された場合のみ、次の権限チェックまたはサービス開始のロジックを呼び出す
                     checkPermissionsAndLaunchServiceIfNeeded()
                 } else {
                     Log.d(TAG, "Not all permissions granted in this request. Showing Toast.")
                     Toast.makeText(context, "必要な権限が許可されませんでした。", Toast.LENGTH_LONG).show()
-                    // 必要であれば、ここでさらに `checkPermissionsAndLaunchServiceIfNeeded()` を呼び出し、
-                    // ユーザーに再度権限を促すか、あるいは別のフォールバック処理を行うことも検討できる。
-                    // 現状では、拒否されたらToastのみで、再度ボタンを押すことで再試行する形。
                 }
             }
         )
@@ -60,10 +56,9 @@ fun MainScreen(
     checkPermissionsAndLaunchServiceIfNeeded = {
         Log.d(TAG, "--- checkPermissionsAndLaunchServiceIfNeeded called ---")
 
-        // 最新の権限状態に基づいて必要な権限を特定
         val foregroundPermissionsArray = arrayOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION // COARSEは現状含めている
+            Manifest.permission.ACCESS_COARSE_LOCATION
         )
         val backgroundPermissionString = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             Manifest.permission.ACCESS_BACKGROUND_LOCATION
@@ -82,30 +77,22 @@ fun MainScreen(
         Log.d(TAG, "  Background: Granted = $isBackgroundGranted (Needed: ${backgroundPermissionString != null})")
 
         when {
-            // 1. 通知権限 (Android 13+)
             notificationPermissionString != null && !isNotificationGranted -> {
                 Log.d(TAG, "Requesting Notification permission: $notificationPermissionString")
                 requestPermissionLauncher.launch(arrayOf(notificationPermissionString))
             }
-            // 2. フォアグラウンド位置情報権限
             !areForegroundGranted -> {
                 Log.d(TAG, "Requesting Foreground permissions: ${foregroundPermissionsArray.joinToString()}")
                 requestPermissionLauncher.launch(foregroundPermissionsArray)
             }
-            // 3. バックグラウンド位置情報権限 (Android 10+)
             backgroundPermissionString != null && !isBackgroundGranted -> {
                 Log.d(TAG, "Requesting Background permission: $backgroundPermissionString")
-                // バックグラウンド権限は、フォアグラウンドが許可された後に求めるのがベストプラクティス
                 if (areForegroundGranted) {
                     requestPermissionLauncher.launch(arrayOf(backgroundPermissionString))
                 } else {
-                    // このケースは通常、上のフォアグラウンドリクエストで処理されるはずだが、念のためログ
                     Log.w(TAG, "Background permission needed, but foreground not granted yet. Should not happen if logic is correct.")
-                    // ここで再度フォアグラウンドを要求するか、ユーザーに通知するか検討
-                    // foregroundPermissionLauncher.launch(foregroundPermissionsArray) // 例
                 }
             }
-            // 4. すべての必要な権限が許可されている
             else -> {
                 Log.d(TAG, "All necessary permissions are granted. Starting service.")
                 context.startForegroundService(Intent(context, LocationService::class.java))
@@ -116,14 +103,23 @@ fun MainScreen(
 
     // --- UIの定義 ---
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp), // パディングを追加して見やすくする
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(text = "ステータス: ${uiState.statusText}", style = MaterialTheme.typography.headlineSmall)
         Spacer(modifier = Modifier.height(16.dp))
         Text(text = "経過時間: ${uiState.elapsedTimeText}", style = MaterialTheme.typography.displayMedium)
+        Spacer(modifier = Modifier.height(16.dp)) // 間隔を調整
+
+        // ★★★ 生の座標と正規化された座標を表示するTextを追加 ★★★
+        Text(text = uiState.rawLocationText, style = MaterialTheme.typography.bodyLarge)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = uiState.normalizedLocationText, style = MaterialTheme.typography.bodyLarge)
         Spacer(modifier = Modifier.height(32.dp))
+        // ★★★ ここまで追加 ★★★
 
         Button(
             onClick = {
@@ -137,7 +133,9 @@ fun MainScreen(
                     checkPermissionsAndLaunchServiceIfNeeded()
                 }
             },
-            modifier = Modifier.fillMaxWidth(0.8f).height(50.dp)
+            modifier = Modifier
+                .fillMaxWidth(0.8f)
+                .height(50.dp)
         ) {
             Text(text = if (uiState.isServiceRunning) "サービス終了" else "サービス起動")
         }
@@ -157,8 +155,7 @@ private fun arePermissionsGranted(context: Context, permissions: Array<String>):
         Log.d("PermissionFlow", "arePermissionsGranted for empty array: true")
         return true
     }
-    val result = permissions.all { isPermissionGranted(context, it) } // isPermissionGranted内のログも利用
+    val result = permissions.all { isPermissionGranted(context, it) }
     Log.d("PermissionFlow", "arePermissionsGranted for ${permissions.joinToString()}: $result")
     return result
 }
-

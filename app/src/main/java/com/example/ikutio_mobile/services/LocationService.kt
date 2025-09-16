@@ -11,6 +11,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.example.ikutio_mobile.MainApplication.Companion.LOCATION_SERVICE_CHANNEL_ID
 import com.example.ikutio_mobile.R
+import com.example.ikutio_mobile.data.remote.MapsApiService
 import com.example.ikutio_mobile.data.repository.LocationRepository
 import com.google.android.gms.location.*
 import dagger.hilt.android.AndroidEntryPoint
@@ -28,36 +29,32 @@ class LocationService : Service() {
     lateinit var fusedLocationClient: FusedLocationProviderClient
     @Inject
     lateinit var locationRepository: LocationRepository
+    @Inject
+    lateinit var mapsApiService: MapsApiService // MapsApiServiceを注入
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var locationCallback: LocationCallback
 
     companion object {
         const val UPDATE_INTERVAL_IN_MILLISECONDS: Long = 15000 // 15秒
-        const val NOTIFICATION_ID = 1 // 通知ID
+        const val NOTIFICATION_ID = 1
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d("LocationService", "onStartCommandが呼ばれ、サービスが開始されました")
-        // ▼▼▼ ここから追加 ▼▼▼
         val notification = createNotification()
-        // サービスをフォアグラウンドで開始
         startForeground(NOTIFICATION_ID, notification)
-        // ▲▲▲ ここまで追加 ▲▲▲
-
         startLocationUpdates()
         return START_STICKY
     }
 
-    // ▼▼▼ この関数をまるごと追加 ▼▼▼
     private fun createNotification(): Notification {
         return NotificationCompat.Builder(this, LOCATION_SERVICE_CHANNEL_ID)
             .setContentTitle("経路を記録中")
             .setContentText("バックグラウンドで位置情報を取得しています...")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setOngoing(true) // ユーザーがスワイプで消せないようにする
+            .setOngoing(true)
             .build()
     }
 
@@ -77,13 +74,38 @@ class LocationService : Service() {
             override fun onLocationResult(locationResult: LocationResult) {
                 super.onLocationResult(locationResult)
                 locationResult.lastLocation?.let { location ->
-                    Log.d("LocationService", "New location: ${location.latitude}, ${location.longitude}")
+                    Log.d("LocationService", "Raw location: ${location.latitude}, ${location.longitude}")
+                    // ★ 生の座標をRepositoryに通知
+                    locationRepository.updateLatestRawLocation(location.latitude, location.longitude)
+
                     serviceScope.launch {
-                        locationRepository.addLocationPoint(
-                            latitude = location.latitude,
-                            longitude = location.longitude,
-                            timestamp = System.currentTimeMillis()
-                        )
+                        try {
+                            val metadataResponse = mapsApiService.getStreetViewMetadata(
+                                location = "${location.latitude},${location.longitude}"
+                            )
+                            if (metadataResponse.status == "OK" && metadataResponse.location != null) {
+                                val normalizedLat = metadataResponse.location.lat
+                                val normalizedLng = metadataResponse.location.lng
+                                Log.d("LocationService", "Normalized location: $normalizedLat, $normalizedLng")
+
+                                // ★ 正規化後の座標をRepositoryに通知
+                                locationRepository.updateLatestNormalizedLocation(normalizedLat, normalizedLng)
+                                // DBには正規化後の座標を保存
+                                locationRepository.addLocationPoint(
+                                    latitude = normalizedLat,
+                                    longitude = normalizedLng,
+                                    timestamp = System.currentTimeMillis()
+                                )
+                            } else {
+                                Log.w("LocationService", "No Street View found or error: ${metadataResponse.status}. Skipping point.")
+                                // ★ 正規化失敗/該当なしをRepositoryに通知
+                                locationRepository.updateLatestNormalizedLocation(null, null)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("LocationService", "Error calling Maps API or saving location", e)
+                            // ★ APIエラー時も正規化失敗としてRepositoryに通知
+                            locationRepository.updateLatestNormalizedLocation(null, null)
+                        }
                     }
                 }
             }

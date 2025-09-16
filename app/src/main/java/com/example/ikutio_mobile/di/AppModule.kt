@@ -4,12 +4,13 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.room.Room
 import androidx.security.crypto.EncryptedSharedPreferences
-// import androidx.security.crypto.MasterKey // ← 不要になるのでコメントアウトまたは削除
-import androidx.security.crypto.MasterKeys // ★ こちらをインポート
+import androidx.security.crypto.MasterKeys
 import com.example.ikutio_mobile.data.local.AppDatabase
 import com.example.ikutio_mobile.data.local.dao.LocationDao
 import com.example.ikutio_mobile.data.remote.AuthApiService
 import com.example.ikutio_mobile.data.remote.AuthInterceptor
+import com.example.ikutio_mobile.data.remote.GameApiService
+import com.example.ikutio_mobile.data.remote.MapsApiService
 import com.example.ikutio_mobile.data.remote.ProfileApiService
 import com.example.ikutio_mobile.data.repository.LocationRepository
 import com.example.ikutio_mobile.data.security.TokenManager
@@ -25,21 +26,21 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import javax.inject.Named
 import javax.inject.Singleton
-import com.example.ikutio_mobile.data.remote.GameApiService
 
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    private const val BASE_URL = "http://192.168.179.62:50052/"
-
+    private const val AUTH_BASE_URL = "http://192.168.179.62:50052/"
+    private const val GAME_BASE_URL = "http://192.168.179.62:50056/"
+    private const val MAPS_BASE_URL = "https://maps.googleapis.com/"
 
     @Provides
     @Singleton
     fun provideSharedPreferences(@ApplicationContext context: Context): SharedPreferences {
         val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
-
         return EncryptedSharedPreferences.create(
             "secret_prefs",
             masterKeyAlias,
@@ -63,16 +64,14 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideRetrofit(authInterceptor: AuthInterceptor): Retrofit {
-        val logger = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
-
+    @Named("AuthRetrofit")
+    fun provideAuthRetrofit(authInterceptor: AuthInterceptor): Retrofit {
         val client = OkHttpClient.Builder()
-            .addInterceptor(logger)
+            .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
             .addInterceptor(authInterceptor)
             .build()
-
         return Retrofit.Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(AUTH_BASE_URL)
             .client(client)
             .addConverterFactory(GsonConverterFactory.create(GsonBuilder().create()))
             .build()
@@ -80,14 +79,55 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideAuthApiService(retrofit: Retrofit): AuthApiService {
+    @Named("GameRetrofit")
+    fun provideGameRetrofit(authInterceptor: AuthInterceptor): Retrofit {
+        val client = OkHttpClient.Builder()
+            .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
+            .addInterceptor(authInterceptor)
+            .build()
+        return Retrofit.Builder()
+            .baseUrl(GAME_BASE_URL)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create(GsonBuilder().create()))
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    @Named("MapsRetrofit")
+    fun provideMapsRetrofit(): Retrofit {
+        val client = OkHttpClient.Builder()
+            .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
+            .build()
+        return Retrofit.Builder()
+            .baseUrl(MAPS_BASE_URL)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create(GsonBuilder().create()))
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideAuthApiService(@Named("AuthRetrofit") retrofit: Retrofit): AuthApiService {
         return retrofit.create(AuthApiService::class.java)
     }
 
     @Provides
     @Singleton
-    fun provideProfileApiService(retrofit: Retrofit): ProfileApiService {
+    fun provideProfileApiService(@Named("AuthRetrofit") retrofit: Retrofit): ProfileApiService {
         return retrofit.create(ProfileApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideGameApiService(@Named("GameRetrofit") retrofit: Retrofit): GameApiService {
+        return retrofit.create(GameApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideMapsApiService(@Named("MapsRetrofit") retrofit: Retrofit): MapsApiService {
+        return retrofit.create(MapsApiService::class.java)
     }
 
     @Provides
@@ -110,20 +150,14 @@ object AppModule {
     @Singleton
     fun provideLocationRepository(
         locationDao: LocationDao,
-        gameApiService: GameApiService // 引数にgameApiServiceを追加
+        gameApiService: GameApiService
     ): LocationRepository {
-        return LocationRepository(locationDao, gameApiService) // 両方を渡す
+        return LocationRepository(locationDao, gameApiService)
     }
 
     @Provides
     @Singleton
     fun provideFusedLocationProviderClient(@ApplicationContext context: Context): FusedLocationProviderClient {
         return LocationServices.getFusedLocationProviderClient(context)
-    }
-
-    @Provides
-    @Singleton
-    fun provideGameApiService(retrofit: Retrofit): GameApiService {
-        return retrofit.create(GameApiService::class.java)
     }
 }
