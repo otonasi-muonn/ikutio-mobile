@@ -26,6 +26,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import javax.inject.Singleton
+import com.example.ikutio_mobile.data.remote.GameApiService
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -106,13 +107,22 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideLocationRepository(locationDao: LocationDao): LocationRepository {
-        return LocationRepository(locationDao)
+    fun provideLocationRepository(
+        locationDao: LocationDao,
+        gameApiService: GameApiService // 引数にgameApiServiceを追加
+    ): LocationRepository {
+        return LocationRepository(locationDao, gameApiService) // 両方を渡す
     }
 
     @Provides
     @Singleton
     fun provideFusedLocationProviderClient(@ApplicationContext context: Context): FusedLocationProviderClient {
         return LocationServices.getFusedLocationProviderClient(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideGameApiService(retrofit: Retrofit): GameApiService {
+        return retrofit.create(GameApiService::class.java)
     }
 }

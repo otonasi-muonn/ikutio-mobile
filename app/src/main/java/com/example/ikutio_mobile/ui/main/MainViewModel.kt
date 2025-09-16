@@ -1,7 +1,11 @@
 package com.example.ikutio_mobile.ui.main
 
+import android.content.Context
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.ikutio_mobile.data.repository.LocationRepository
+import com.example.ikutio_mobile.services.LocationService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -12,7 +16,6 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 import javax.inject.Inject
 
-// 指摘3を反映：初期値を定数化
 private const val INITIAL_TIME = "00:00:00"
 
 data class MainUiState(
@@ -22,34 +25,52 @@ data class MainUiState(
 )
 
 @HiltViewModel
-class MainViewModel @Inject constructor() : ViewModel() {
+class MainViewModel @Inject constructor(
+    private val locationRepository: LocationRepository
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState = _uiState.asStateFlow()
 
     private var timerJob: Job? = null
 
-    // 指摘1を反映：Contextへの依存をなくし、状態更新とタイマー開始の責務に集中
     fun startTimerAndUpdateState() {
         _uiState.value = _uiState.value.copy(isServiceRunning = true, statusText = "記録中")
         startTimer()
     }
 
-    // 指摘1を反映：Contextへの依存をなくし、状態更新とタイマー停止の責務に集中
     fun stopTimerAndUpdateState() {
-        _uiState.value = _uiState.value.copy(
-            isServiceRunning = false,
-            statusText = "待機中",
-            elapsedTimeText = INITIAL_TIME
-        )
+        // UIの状態を先に「送信中」に更新
+        _uiState.value = _uiState.value.copy(statusText = "データを送信中...")
         stopTimer()
+
+        // データ転送処理を非同期で実行
+        viewModelScope.launch {
+            try {
+                // Repositoryのデータ転送関数を呼び出す
+                locationRepository.sendPathDataToServer()
+
+                // 成功したらUIの状態を「待機中」に戻す
+                _uiState.value = _uiState.value.copy(
+                    isServiceRunning = false,
+                    statusText = "待機中",
+                    elapsedTimeText = INITIAL_TIME
+                )
+            } catch (e: Exception) {
+                // 失敗したらUIにエラーを通知
+                _uiState.value = _uiState.value.copy(
+                    isServiceRunning = false, // サービス自体は止まっているのでfalseに
+                    statusText = "送信失敗",
+                    elapsedTimeText = INITIAL_TIME
+                )
+            }
+        }
     }
 
     private fun startTimer() {
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
             val startTime = System.currentTimeMillis()
-            // 指摘2を反映：while(true)からwhile(isActive)に変更
             while (isActive) {
                 val elapsedTimeInSeconds = (System.currentTimeMillis() - startTime) / 1000
                 _uiState.value = _uiState.value.copy(
