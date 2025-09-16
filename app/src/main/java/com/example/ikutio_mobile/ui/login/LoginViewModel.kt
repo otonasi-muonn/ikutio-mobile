@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.example.ikutio_mobile.data.security.TokenManager
 
 // UIの状態を表すデータクラス
 data class LoginUiState(
@@ -21,7 +22,8 @@ data class LoginUiState(
 
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    private val authApiService: AuthApiService // HiltがAuthApiServiceを自動で注入してくれる
+    private val authApiService: AuthApiService,
+    private val tokenManager: TokenManager // TokenManagerを注入
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -53,9 +55,10 @@ class LoginViewModel @Inject constructor(
                 // ② APIを呼び出し
                 val response = authApiService.login(request)
 
-                // TODO: 受け取ったJWTやリフレッシュトークンを安全な場所に保存する処理
-
-                // ③ 成功状態をUIに通知
+                tokenManager.saveTokens(
+                    accessToken = response.jwt,
+                    refreshToken = response.refreshToken
+                )
                 _uiState.value = _uiState.value.copy(isLoading = false, loginSuccess = true)
 
             } catch (e: Exception) {
