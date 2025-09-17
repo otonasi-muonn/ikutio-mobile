@@ -1,8 +1,11 @@
 package com.example.ikutio_mobile.ui.main
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ikutio_mobile.data.repository.LocationRepository
+import com.example.ikutio_mobile.data.repository.InsufficientPointsException
+import com.example.ikutio_mobile.data.repository.NoProcessablePathDataException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -18,13 +21,13 @@ import javax.inject.Inject
 
 private const val INITIAL_TIME = "00:00:00"
 private const val INITIAL_DISTANCE_TEXT = "総移動距離: ---"
+private const val INITIAL_RAW_LOCATION_TEXT = "生の座標: ---"
 
 data class MainUiState(
     val isServiceRunning: Boolean = false,
     val statusText: String = "待機中",
     val elapsedTimeText: String = INITIAL_TIME,
-    val rawLocationText: String = "生の座標: ---",
-    val normalizedLocationText: String = "正規化座標: ---",
+    val rawLocationText: String = INITIAL_RAW_LOCATION_TEXT,
     val totalDistanceText: String = INITIAL_DISTANCE_TEXT
 )
 
@@ -37,35 +40,31 @@ class MainViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
 
     private var timerJob: Job? = null
+    private val TAG = "MainViewModel"
 
     init {
         locationRepository.latestRawLocation
             .onEach { locationPair ->
-                // ★ 表示精度を %.8f に変更
-                val text = locationPair?.let { (lat, lng) -> "生の座標: ${String.format(Locale.US, "%.8f, %.8f", lat, lng)}" } ?: "生の座標: ---"
+                val text = locationPair?.let { (lat, lng) -> "生の座標: ${String.format(Locale.US, "%.8f, %.8f", lat, lng)}" } ?: INITIAL_RAW_LOCATION_TEXT
                 _uiState.update { it.copy(rawLocationText = text) }
             }.launchIn(viewModelScope)
 
-        locationRepository.latestNormalizedLocation
-            .onEach { locationPair ->
-                val text = locationPair?.let { (lat, lng) -> "正規化座標: ${String.format(Locale.US, "%.6f, %.6f", lat, lng)}" } ?: "正規化座標: (なし)"
-                _uiState.update { it.copy(normalizedLocationText = text) }
-
-                if (locationPair != null) {
-                    updateTotalDistanceDisplay()
-                }
+        locationRepository.processedPathDistance
+            .onEach { distance ->
+                val distanceText = distance?.let { formatDistanceForUi(it) } ?: INITIAL_DISTANCE_TEXT
+                _uiState.update { it.copy(totalDistanceText = distanceText) }
+                Log.d(TAG, "Processed path distance updated in UI: $distanceText")
             }.launchIn(viewModelScope)
-
-        updateTotalDistanceDisplay()
     }
 
     fun startTimerAndUpdateState() {
+        locationRepository.resetProcessedPathDistance()
         _uiState.update { it.copy(isServiceRunning = true, statusText = "記録中") }
         startTimer()
     }
 
     fun stopTimerAndUpdateState() {
-        _uiState.update { it.copy(statusText = "データを送信中...") }
+        _uiState.update { it.copy(statusText = "経路データを処理中...") }
         stopTimer()
         viewModelScope.launch {
             try {
@@ -73,36 +72,34 @@ class MainViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isServiceRunning = false,
-                        statusText = "待機中",
-                        elapsedTimeText = INITIAL_TIME,
-                        rawLocationText = "生の座標: ---",
-                        normalizedLocationText = "正規化座標: ---"
+                        statusText = "送信完了"
                     )
                 }
-            } catch (e: Exception) {
+            } catch (e: InsufficientPointsException) {
+                Log.w(TAG, "Processing failed: ${e.message}")
                 _uiState.update {
                     it.copy(
                         isServiceRunning = false,
-                        statusText = "送信失敗",
-                        elapsedTimeText = INITIAL_TIME,
-                        rawLocationText = "生の座標: ---",
-                        normalizedLocationText = "正規化座標: ---"
+                        statusText = e.message ?: "座標が不足しています"
                     )
                 }
-            } finally {
-                updateTotalDistanceDisplay()
+            } catch (e: NoProcessablePathDataException) {
+                Log.w(TAG, "Processing failed: ${e.message}")
+                _uiState.update {
+                    it.copy(
+                        isServiceRunning = false,
+                        statusText = e.message ?: "有効な経路データなし"
+                    )
+                }
             }
-        }
-    }
-
-    private fun updateTotalDistanceDisplay() {
-        viewModelScope.launch {
-            try {
-                val distanceMeters = locationRepository.getTotalDistanceTraveled()
-                _uiState.update { it.copy(totalDistanceText = formatDistanceForUi(distanceMeters)) }
-            } catch (e: Exception) {
-                // Log.e("MainViewModel", "Failed to get total distance", e)
-                _uiState.update { it.copy(totalDistanceText = "総移動距離: 計算エラー") }
+            catch (e: Exception) {
+                Log.e(TAG, "Processing or sending failed with general exception", e)
+                _uiState.update {
+                    it.copy(
+                        isServiceRunning = false,
+                        statusText = "処理または送信失敗: ${e.message?.take(30) ?: "不明なエラー"}"
+                    )
+                }
             }
         }
     }
@@ -135,6 +132,7 @@ class MainViewModel @Inject constructor(
     private fun stopTimer() {
         timerJob?.cancel()
         timerJob = null
+        _uiState.update { it.copy(elapsedTimeText = INITIAL_TIME) }
     }
 
     private fun formatTime(seconds: Long): String {

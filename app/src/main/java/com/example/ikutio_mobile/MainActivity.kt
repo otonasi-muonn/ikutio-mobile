@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import com.example.ikutio_mobile.ui.main.MainScreen
 import com.example.ikutio_mobile.ui.theme.IkutiomobileTheme
 import dagger.hilt.android.AndroidEntryPoint
 import com.example.ikutio_mobile.ui.navigation.AppNavigation

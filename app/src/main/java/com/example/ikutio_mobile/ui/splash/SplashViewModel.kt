@@ -28,7 +28,6 @@ class SplashViewModel @Inject constructor(
 
     private fun checkUserLoginStatus() {
         viewModelScope.launch {
-            delay(1500)
 
             val accessToken = tokenManager.getAccessToken()
             val refreshToken = tokenManager.getRefreshToken()

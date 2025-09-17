@@ -14,12 +14,10 @@ class TokenManager @Inject constructor(
         private const val KEY_REFRESH_TOKEN = "refresh_token"
     }
 
-    // アクセストークンだけを保存する
     fun saveAccessToken(token: String) {
         prefs.edit { putString(KEY_ACCESS_TOKEN, token) }
     }
 
-    // リフレッシュトークンだけを保存する
     fun saveRefreshToken(token: String) {
         prefs.edit { putString(KEY_REFRESH_TOKEN, token) }
     }

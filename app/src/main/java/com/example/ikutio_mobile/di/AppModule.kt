@@ -34,7 +34,7 @@ import javax.inject.Singleton
 object AppModule {
 
     private const val AUTH_BASE_URL = "http://192.168.179.62:50052/"
-    private const val GAME_BASE_URL = "http://192.168.179.62:50056/"
+    private const val GAME_BASE_URL = "https://ikutio-back.tatsuya871-1005.workers.dev"
     private const val MAPS_BASE_URL = "https://maps.googleapis.com/"
 
     @Provides
@@ -150,9 +150,10 @@ object AppModule {
     @Singleton
     fun provideLocationRepository(
         locationDao: LocationDao,
-        gameApiService: GameApiService
+        gameApiService: GameApiService,
+        mapsApiService: MapsApiService // ★ 修正点: パラメータ追加
     ): LocationRepository {
-        return LocationRepository(locationDao, gameApiService)
+        return LocationRepository(locationDao, gameApiService, mapsApiService) // ★ 修正点: コンストラクタ引数に追加
     }
 
     @Provides
