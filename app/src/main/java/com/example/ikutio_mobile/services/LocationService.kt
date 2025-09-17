@@ -88,7 +88,6 @@ class LocationService : Service() {
                                 val normalizedLng = metadataResponse.location.lng
                                 Log.d("LocationService", "Normalized location: $normalizedLat, $normalizedLng")
 
-                                // ★ 正規化後の座標をRepositoryに通知
                                 locationRepository.updateLatestNormalizedLocation(normalizedLat, normalizedLng)
                                 // DBには正規化後の座標を保存
                                 locationRepository.addLocationPoint(
@@ -103,7 +102,6 @@ class LocationService : Service() {
                             }
                         } catch (e: Exception) {
                             Log.e("LocationService", "Error calling Maps API or saving location", e)
-                            // ★ APIエラー時も正規化失敗としてRepositoryに通知
                             locationRepository.updateLatestNormalizedLocation(null, null)
                         }
                     }

@@ -51,14 +51,14 @@ fun LoginScreen(
 
             OutlinedTextField(
                 value = uiState.email,
-                onValueChange = { viewModel.onEmailChange(it) }, // <-- ここのタイポを修正
+                onValueChange = { viewModel.onEmailChange(it) },
                 label = { Text("メールアドレス") },
                 singleLine = true
             )
 
             OutlinedTextField(
                 value = uiState.password,
-                onValueChange = { viewModel.onPasswordChange(it) }, // <-- ここのタイポを修正
+                onValueChange = { viewModel.onPasswordChange(it) },
                 label = { Text("パスワード") },
                 singleLine = true
             )

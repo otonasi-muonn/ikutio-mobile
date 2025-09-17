@@ -1,5 +1,3 @@
-// このファイルは、すべてのサブプロジェクト/モジュールに共通の設定を追加できます。
-// プロジェクト全体のプラグインはここで宣言しますが、「apply false」で即時適用はしません。
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.kotlin.android) apply false

@@ -4,7 +4,7 @@ import com.google.gson.annotations.SerializedName
 
 data class StreetViewMetadataResponse(
     @SerializedName("status")
-    val status: String, // "OK" または "ZERO_RESULTS"
+    val status: String,
 
     @SerializedName("location")
     val location: LocationLatLng?

@@ -8,7 +8,7 @@ import retrofit2.http.Query
 interface MapsApiService {
     @GET("https://maps.googleapis.com/maps/api/streetview/metadata")
     suspend fun getStreetViewMetadata(
-        @Query("location") location: String, // "lat,lng"形式の文字列
+        @Query("location") location: String,
         @Query("key") key: String = BuildConfig.MAPS_API_KEY
     ): StreetViewMetadataResponse
 }

@@ -6,6 +6,6 @@ import retrofit2.http.Body
 import retrofit2.http.POST
 
 interface GameApiService {
-    @POST("/locations")
-    suspend fun sendPathData(@Body request: PathDataRequest): Response<Unit> // レスポンスボディがない場合はUnit
+    @POST("/post_locations")
+    suspend fun sendPathData(@Body request: PathDataRequest): Response<Unit>
 }
