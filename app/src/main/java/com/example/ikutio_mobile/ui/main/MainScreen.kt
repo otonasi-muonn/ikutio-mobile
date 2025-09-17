@@ -77,6 +77,8 @@ fun MainScreen(
         Text(text = uiState.rawLocationText, style = MaterialTheme.typography.bodyLarge)
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = uiState.normalizedLocationText, style = MaterialTheme.typography.bodyLarge)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = uiState.totalDistanceText, style = MaterialTheme.typography.bodyLarge)
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(

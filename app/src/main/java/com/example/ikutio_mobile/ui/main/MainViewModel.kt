@@ -17,13 +17,15 @@ import java.util.Locale
 import javax.inject.Inject
 
 private const val INITIAL_TIME = "00:00:00"
+private const val INITIAL_DISTANCE_TEXT = "総移動距離: ---"
 
 data class MainUiState(
     val isServiceRunning: Boolean = false,
     val statusText: String = "待機中",
     val elapsedTimeText: String = INITIAL_TIME,
     val rawLocationText: String = "生の座標: ---",
-    val normalizedLocationText: String = "正規化座標: ---"
+    val normalizedLocationText: String = "正規化座標: ---",
+    val totalDistanceText: String = INITIAL_DISTANCE_TEXT
 )
 
 @HiltViewModel
@@ -39,7 +41,8 @@ class MainViewModel @Inject constructor(
     init {
         locationRepository.latestRawLocation
             .onEach { locationPair ->
-                val text = locationPair?.let { (lat, lng) -> "生の座標: ${String.format(Locale.US, "%.6f, %.6f", lat, lng)}" } ?: "生の座標: ---"
+                // ★ 表示精度を %.8f に変更
+                val text = locationPair?.let { (lat, lng) -> "生の座標: ${String.format(Locale.US, "%.8f, %.8f", lat, lng)}" } ?: "生の座標: ---"
                 _uiState.update { it.copy(rawLocationText = text) }
             }.launchIn(viewModelScope)
 
@@ -47,7 +50,13 @@ class MainViewModel @Inject constructor(
             .onEach { locationPair ->
                 val text = locationPair?.let { (lat, lng) -> "正規化座標: ${String.format(Locale.US, "%.6f, %.6f", lat, lng)}" } ?: "正規化座標: (なし)"
                 _uiState.update { it.copy(normalizedLocationText = text) }
+
+                if (locationPair != null) {
+                    updateTotalDistanceDisplay()
+                }
             }.launchIn(viewModelScope)
+
+        updateTotalDistanceDisplay()
     }
 
     fun startTimerAndUpdateState() {
@@ -80,7 +89,33 @@ class MainViewModel @Inject constructor(
                         normalizedLocationText = "正規化座標: ---"
                     )
                 }
+            } finally {
+                updateTotalDistanceDisplay()
             }
+        }
+    }
+
+    private fun updateTotalDistanceDisplay() {
+        viewModelScope.launch {
+            try {
+                val distanceMeters = locationRepository.getTotalDistanceTraveled()
+                _uiState.update { it.copy(totalDistanceText = formatDistanceForUi(distanceMeters)) }
+            } catch (e: Exception) {
+                // Log.e("MainViewModel", "Failed to get total distance", e)
+                _uiState.update { it.copy(totalDistanceText = "総移動距離: 計算エラー") }
+            }
+        }
+    }
+
+    private fun formatDistanceForUi(meters: Double): String {
+        return "総移動距離: ${formatDistance(meters)}"
+    }
+
+    private fun formatDistance(meters: Double): String {
+        return if (meters >= 1000) {
+            String.format(Locale.US, "%.2f km", meters / 1000.0)
+        } else {
+            String.format(Locale.US, "%.1f m", meters)
         }
     }
 

@@ -5,6 +5,7 @@ import com.example.ikutio_mobile.data.local.entity.LocationPointEntity
 import com.example.ikutio_mobile.data.remote.GameApiService
 import com.example.ikutio_mobile.data.remote.dto.PathDataItem
 import com.example.ikutio_mobile.data.remote.dto.PathDataRequest
+import com.example.ikutio_mobile.utils.calculateTotalDistance
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,19 +23,14 @@ class LocationRepository @Inject constructor(
     private val gameApiService: GameApiService
 ) {
 
-    // 最新の生座標 (緯度, 経度)
     private val _latestRawLocation = MutableStateFlow<Pair<Double, Double>?>(null)
     val latestRawLocation: StateFlow<Pair<Double, Double>?> = _latestRawLocation.asStateFlow()
 
-    // 最新の正規化後座標 (緯度, 経度)
     private val _latestNormalizedLocation = MutableStateFlow<Pair<Double, Double>?>(null)
     val latestNormalizedLocation: StateFlow<Pair<Double, Double>?> = _latestNormalizedLocation.asStateFlow()
 
-    // リポジトリ初期化時にDBから最新の正規化座標を読み込む
     init {
-        // ViewModel などが初期値をすぐに受け取れるように、
-        // ここではブロッキングしないように別コルーチンで実行
-        CoroutineScope(Dispatchers.IO).launch { // IOディスパッチャでDBアクセス
+        CoroutineScope(Dispatchers.IO).launch {
             val latestPoint = locationDao.getLatestLocationPoint()
             latestPoint?.let {
                 _latestNormalizedLocation.value = Pair(it.latitude, it.longitude)
@@ -50,7 +46,7 @@ class LocationRepository @Inject constructor(
         if (latitude != null && longitude != null) {
             _latestNormalizedLocation.value = Pair(latitude, longitude)
         } else {
-            _latestNormalizedLocation.value = null // 正規化失敗・該当なしの場合
+            _latestNormalizedLocation.value = null
         }
     }
 
@@ -61,7 +57,6 @@ class LocationRepository @Inject constructor(
             timestamp = timestamp
         )
         locationDao.insertLocationPoint(point)
-        // DBに新しい正規化座標が追加されたら、StateFlowも更新する
         updateLatestNormalizedLocation(latitude, longitude)
     }
 
@@ -69,10 +64,14 @@ class LocationRepository @Inject constructor(
         return locationDao.getAllLocationPoints()
     }
 
+    suspend fun getTotalDistanceTraveled(): Double {
+        val points = locationDao.getAllLocationPoints()
+        return points.calculateTotalDistance()
+    }
+
     suspend fun clearAllLocationPoints() {
         locationDao.deleteAllLocationPoints()
-        // ローカルデータがクリアされたら、StateFlowも初期値に戻す（nullまたは適切な初期値）
-        _latestNormalizedLocation.value = null // または他の初期値
+        _latestNormalizedLocation.value = null
         _latestRawLocation.value = null
     }
 
@@ -80,7 +79,6 @@ class LocationRepository @Inject constructor(
         val localPoints = locationDao.getAllLocationPoints()
 
         if (localPoints.isEmpty()) {
-            // 送信するデータがない場合は何もしない
             return
         }
 
@@ -93,16 +91,13 @@ class LocationRepository @Inject constructor(
         }
 
         val request = PathDataRequest(pathData = pathDataItems)
-
         val response = gameApiService.sendPathData(request)
 
         if (response.isSuccessful) {
             locationDao.deleteAllLocationPoints()
-            // 送信成功後もStateFlowをクリア
             _latestNormalizedLocation.value = null
             _latestRawLocation.value = null
         } else {
-            // TODO: より具体的なエラーハンドリング (例: UIに通知する、リトライするなど)
             throw Exception("API call failed with code: ${response.code()}")
         }
     }
