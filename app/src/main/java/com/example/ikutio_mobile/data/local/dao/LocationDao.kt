@@ -14,6 +14,10 @@ interface LocationDao {
     @Query("SELECT * FROM location_points ORDER BY timestamp ASC")
     suspend fun getAllLocationPoints(): List<LocationPointEntity>
 
+    // これを追加します
+    @Query("SELECT * FROM location_points ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLatestLocationPoint(): LocationPointEntity?
+
     @Query("DELETE FROM location_points")
     suspend fun deleteAllLocationPoints()
 }
